@@ -16,6 +16,7 @@ MongoClient.connect(connectionString, function(err, dbCon) {
   if (err) {
     console.error('Unable to connect to MognoDB');
   } else {
+    console.log('Connected to mongodb...');
     db = dbCon;
   }
 });
@@ -66,7 +67,7 @@ app.use(function(req, res, next) {
       xhr: req.xhr,
       method: req.method,
       cookies: req.cookies,
-      signedcookies: req,signedCookies,
+      signedcookies: req.signedCookies,
       querry: req.query,
       params: req.params,
       headers: req.headers,
@@ -87,26 +88,5 @@ app.use(function(req, res, next) {
   return res.json(request);
 });
 //app.use('/', routes);
-
-// catch 404 and forward to error handler
-//app.use(function(req, res, next) {
- // var err = new Error('Not Found');
-//  err.status = 404;
-//  next(err);
-//});
-
-// error handlers
-
-// development error handler
-// will print stacktrace
-//if (app.get('env') === 'development') {
-//  app.use(function(err, req, res, next) {
-//    res.status(err.status || 500);
-//    res.render('error', {
-//      message: err.message,
-//      error: err
-//    });
-//  });
-//}
 
 module.exports = app;
