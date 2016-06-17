@@ -1,49 +1,74 @@
 #!/usr/bin/env node
+/**
+ * Server setup based on generated express application.
+ */
+
+'use strict';
 
 /**
  * Module dependencies.
  */
+const app = require('../app');
+const debug = require('debug');
+const http = require('http');
+const https = require('https');
+const fs = require('fs');
+const _ = require('lodash');
 
-var app = require('../app');
-var debug = require('debug')('AcidReflux:server');
-var http = require('http');
-var https = require('https');
-var fs = require('fs');
+var serverDebug = debug('AcidReflux:server');
 
-var privateKey = fs.readFileSync('/path/to/private.key', 'utf8');
-var certificate = fs.readFileSync('/path/to/certificate.crt', 'utf8');
+const DEFAULT_ARGS = {
+  httpPort: 3000,
+  httpsPort: 3443,
+  uiPort: 3990,
+  listenHttps: false
+};
 
-/**
- * Get port from environment and store in Express.
- */
+const getArgs = () => {
+  let args = process.argv.slice(2);
+  let argObj = Object.assign({}, DEFAULT_ARGS);
 
-var port = normalizePort(process.env.PORT || '3000');
-var secPort = normalizePort(process.env.SECPORT || '3443');
-app.set('port', port);
-
-/**
- * Create HTTP server.
- */
-
-var server = http.createServer(app);
-
-var credentials = {key: privateKey, cert: certificate};
-var https = https.createServer(credentials, app);
-/**
- * Listen on provided port, on all network interfaces.
- */
-
-server.listen(port);
-server.on('error', onError);
-server.on('listening', onListening);
-
-https.listen(secPort);
-https.on('error', onError);
-https.on('listening', onListening);
-
-/**
- * Normalize a port into a number, string, or false.
- */
+  for (var i = 0; i < args.length; i++) {
+    switch(args[i]) {
+      case '--httpPort':
+        if (i + 1 < args.length) {
+          argObj.httpPort = normalizePort(args[i+1]);
+        }
+        i++;
+        break;
+      case '--httpsPort':
+        if (i + 1 < args.length) {
+          argObj.httpsPort = normalizePort(args[i+1]);
+          argObj.listenHttps = true;
+        }
+        i++;
+        break;
+      case '--uiPort':
+        if (i + 1 < args.length) {
+          argObj.uiPort = normalizePort(args[i+1]);
+        }
+        i++;
+        break;
+      case '--privateKey':
+        if (i + 1 < args.length) {
+          argObj.privateKeyPath = args[i+1];
+          argObj.listenHttps = true;
+        }
+        i++;
+        break;
+      case '--certificate':
+        if (i + 1 < args.length) {
+          argObj.certificatePath = args[i+1];
+          argObj.listenHttps = true;
+        }
+        i++;
+        break;
+      default:
+        break;
+    }
+  }
+  return argObj;
+};
 
 function normalizePort(val) {
   var port = parseInt(val, 10);
@@ -89,14 +114,60 @@ function onError(error) {
   }
 }
 
+const args = getArgs();
+
 /**
- * Event listener for HTTP server "listening" event.
+ * Create HTTP server.
  */
 
-function onListening() {
-  var addr = server.address();
-  var bind = typeof addr === 'string'
-    ? 'pipe ' + addr
-    : 'port ' + addr.port;
-  debug('Listening on ' + bind);
+var httpServer = http.createServer(app);
+
+var uiServer = http.createServer(app);
+
+httpServer.listen(args.httpPort, (err) => {
+  console.log('HTTP SERVER...');
+  if (err) {
+    onError(err);
+  } else {
+    console.log(`Acid Reflux listening HTTP requests on port ${args.httpPort}...`);
+  }
+});
+
+
+if (args.listenHttps) {
+  try {
+    var privateKey = fs.readFileSync(args.privateKeyPath, 'utf8');
+  } catch (e) {
+    console.error('Failed to open private key from path ', args.privateKeyPath);
+    process.exit(1);
+  }
+  try {
+    var certificate = fs.readFileSync(args.certificatePath, 'utf8');
+  } catch (e) {
+    console.error('Failed to open certificate from path ', args.certificatePath);
+    process.exit(1);
+  }
+
+  var credentials = {key: privateKey, cert: certificate};
+  var httpsServer = https.createServer(credentials, app);
+
+  httpsServer.listen(args.httpsPort, (err) => {
+    console.log('HTTPS SERVER...');
+    if (err) {
+      onError(err);
+    } else {
+      console.log(`Acid Reflux listening HTTPS requests on port ${args.httpsPort}...`);
+    }
+  });
+
 }
+
+uiServer.listen(args.uiPort, (err) => {
+  console.log('UI SERVER...');
+  if (err) {
+    onError(err);
+  } else {
+    console.log(`Acid Reflux serving in port ${args.uiPort}...`);
+  }
+});
+
